@@ -2,22 +2,21 @@ const std = @import("std");
 const rl = @import("raylib");
 const rg = @import("raygui");
 
+const win_width = 800;
+const win_height = 450;
+
 const Ball = @import("ball.zig").Ball;
 const Paddle = @import("paddle.zig").Paddle;
-
 const GameState = enum {
     playing,
     game_over,
 };
 
 pub fn main() anyerror!void {
-    const win_width = 800;
-    const win_height = 450;
-
     rl.initWindow(win_width, win_height, "Pong");
     defer rl.closeWindow();
-
     rl.setTargetFPS(60);
+    set_styles();
 
     var state = GameState.playing;
     var ball = Ball.init(win_width, win_height);
@@ -25,63 +24,61 @@ pub fn main() anyerror!void {
 
     while (!rl.windowShouldClose()) {
         // Update
-        switch (state) {
-            .playing => {
-                paddle.update(win_height);
-                ball.update(win_width, win_height, paddle);
-
-                // Check if ball is lost (passed left boundary)
-                if (ball.pos.x + ball.size / 2 < 0) {
-                    state = GameState.game_over;
-                }
-            },
-            .game_over => {
-                // Draw restart button in the center of the screen
-                const button_width = 120;
-                const button_height = 40;
-                const button_x = @divFloor(win_width - button_width, 2);
-                const button_y = @divFloor(win_height - button_height, 2);
-
-                // Check for button click or Enter key
-                if (rg.guiButton(rl.Rectangle{
-                    .x = @floatFromInt(button_x),
-                    .y = @floatFromInt(button_y),
-                    .width = @floatFromInt(button_width),
-                    .height = @floatFromInt(button_height),
-                }, "Restart") == 1 or rl.isKeyPressed(rl.KeyboardKey.enter)) {
-                    // Reset game
-                    state = GameState.playing;
-                    ball = Ball.init(win_width, win_height);
-                    paddle = Paddle.init(win_height);
-                }
-            },
-        }
-
+        update(&state, &ball, &paddle);
         // Draw
         rl.beginDrawing();
         defer rl.endDrawing();
-        rl.clearBackground(rl.Color.black);
+        draw(state, ball, paddle);
+    }
+}
 
-        const mid_start = rl.Vector2{ .x = win_width / 2, .y = 0 };
-        const mid_end = rl.Vector2{ .x = win_width / 2, .y = 10 };
-        draw_dashed_line(mid_start, mid_end, 1, rl.Color.white, rl.Vector2{ .x = win_width, .y = win_height }, 1);
+fn update(state: *GameState, ball: *Ball, paddle: *Paddle) void {
+    switch (state.*) {
+        .playing => {
+            paddle.update(win_height);
+            ball.update(win_width, win_height, paddle.*);
+            // Check if ball is lost
+            if (ball.pos.x + ball.size / 2 < 0) {
+                state.* = GameState.game_over;
+            }
+        },
+        .game_over => {
+            const button_width = 120;
+            const button_height = 40;
+            const button_x = @divFloor(win_width - button_width, 2);
+            const button_y = @divFloor(win_height - button_height, 2);
+            // Check for button click or Enter key
+            if (rg.guiButton(rl.Rectangle{
+                .x = @floatFromInt(button_x),
+                .y = @floatFromInt(button_y),
+                .width = @floatFromInt(button_width),
+                .height = @floatFromInt(button_height),
+            }, "Restart") == 1 or rl.isKeyPressed(rl.KeyboardKey.enter)) {
+                state.* = GameState.playing;
+                ball.* = Ball.init(win_width, win_height);
+                paddle.* = Paddle.init(win_height);
+            }
+        },
+    }
+}
 
-        paddle.draw();
-        ball.draw();
+fn draw(state: GameState, ball: Ball, paddle: Paddle) void {
+    rl.clearBackground(rl.Color.black);
+    switch (state) {
+        .playing => {
+            // Draw middle line
+            const mid_start = rl.Vector2{ .x = win_width / 2, .y = 0 };
+            const mid_end = rl.Vector2{ .x = win_width / 2, .y = 10 };
+            draw_dashed_line(mid_start, mid_end, 1, rl.Color.white, rl.Vector2{ .x = win_width, .y = win_height }, 1);
 
-        // Draw game over text
-        if (state == GameState.game_over) {
-            const text = "Game Over";
-            const font_size = 40;
-            const text_width = rl.measureText(text, font_size);
-            rl.drawText(
-                text,
-                @divFloor(win_width - text_width, 2),
-                @divFloor(win_height - font_size, 2) - 50,
-                font_size,
-                rl.Color.white,
-            );
-        }
+            paddle.draw();
+            ball.draw();
+        },
+        .game_over => {
+            draw_game_over_text("Game Over", 40, rl.Color.white);
+            paddle.draw();
+            ball.draw();
+        },
     }
 }
 
@@ -102,4 +99,24 @@ fn draw_dashed_line(start: rl.Vector2, end: rl.Vector2, thick: f32, color: rl.Co
         rl.drawLineEx(current, dash_end, thick, color);
         current = rl.Vector2{ .x = dash_end.x + direction.x * space_length, .y = dash_end.y + direction.y * space_length };
     }
+}
+
+fn draw_game_over_text(text: [*:0]const u8, font_size: i32, color: rl.Color) void {
+    const text_width = rl.measureText(text, font_size);
+    rl.drawText(
+        text,
+        @divFloor(win_width - text_width, 2),
+        @divFloor(win_height - font_size, 2) - 50,
+        font_size,
+        color,
+    );
+}
+
+fn set_styles() void {
+    rg.guiSetStyle(rg.GuiControl.button, rg.GuiControlProperty.base_color_normal, rl.Color.black.toInt());
+    rg.guiSetStyle(rg.GuiControl.button, rg.GuiControlProperty.text_color_normal, rl.Color.white.toInt());
+
+    rg.guiSetStyle(rg.GuiControl.button, rg.GuiControlProperty.base_color_focused, rl.Color.dark_gray.toInt());
+    rg.guiSetStyle(rg.GuiControl.button, rg.GuiControlProperty.text_color_focused, rl.Color.white.toInt());
+    rg.guiSetStyle(rg.GuiControl.button, rg.GuiControlProperty.border_color_focused, rl.Color.white.toInt());
 }
