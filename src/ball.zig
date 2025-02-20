@@ -10,14 +10,19 @@ pub const Ball = struct {
     size: f32,
 
     // Initial speed range
-    const init_speed_x_range = .{ .min = 3.0, .max = 4.0 };
-    const init_speed_y_range = .{ .min = 2.0, .max = 3.0 };
-    // Speed increase and limits
-    const speed_increase: f32 = 1.15;
-    const max_speed_x: f32 = 7.0;
-    const max_speed_y: f32 = 5.0;
-    // Add paddle influence to vertical velocity
-    const paddle_influence: f32 = 0.4;
+    const init_speed_x_range = .{ .min = 4.0, .max = 5.0 };
+    const init_speed_y_range = .{ .min = 2.5, .max = 3.5 };
+
+    // Speed increase
+    const speed_increase_x: f32 = 1.25;
+    const speed_increase_y: f32 = 1.15;
+
+    // Maximum speeds
+    const max_speed_x: f32 = 9.0;
+    const max_speed_y: f32 = 6.0;
+
+    // Paddle influence
+    const paddle_influence: f32 = 0.5;
 
     pub fn init(win_width: f32, win_height: f32) Ball {
         return Ball.new(win_width, win_height, 10);
@@ -57,19 +62,18 @@ pub const Ball = struct {
 
         // Check collision with paddle
         if (paddle.checkCollision(self)) {
-            // Calculate new velocity with speed increase
-            const current_speed = rl.Vector2.length(self.vel);
-            const new_speed = @min(current_speed * speed_increase, max_speed_x);
-            const speed_ratio = new_speed / current_speed;
+            // Calculate new velocities with different increase ratios
+            const new_speed_x = @min(@abs(self.vel.x) * speed_increase_x, max_speed_x);
+            const new_speed_y = @min(@abs(self.vel.y) * speed_increase_y, max_speed_y);
 
             // Get paddle movement direction {-1, 0, 1}
             const paddle_direction = paddle.getDirection();
-            const vertical_adjustment = new_speed * paddle_influence * paddle_direction;
+            const vertical_adjustment = new_speed_y * paddle_influence * paddle_direction;
 
             // Reverse x direction and apply speed increase
-            self.vel.x *= -speed_ratio;
+            self.vel.x = -std.math.sign(self.vel.x) * new_speed_x;
             // Adjust y velocity based on paddle movement
-            self.vel.y = self.vel.y * speed_ratio + vertical_adjustment;
+            self.vel.y = std.math.sign(self.vel.y) * new_speed_y + vertical_adjustment;
 
             // Ensure ball doesn't get stuck inside paddle
             self.pos.x = paddle.pos.x + paddle.size.x + self.size / 2;

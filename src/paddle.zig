@@ -7,6 +7,8 @@ pub const Paddle = struct {
     pos: rl.Vector2,
     size: rl.Vector2,
     speed: f32,
+    // -1: up, 0: static, 1: down
+    direction: f32,
 
     pub fn init(win_height: f32) Paddle {
         return Paddle.new(50, win_height / 2 - 30);
@@ -16,11 +18,13 @@ pub const Paddle = struct {
         return Paddle{
             .pos = .{ .x = x, .y = y },
             .size = .{ .x = 10, .y = 60 },
-            .speed = 5,
+            .speed = 6,
+            .direction = 0,
         };
     }
 
     pub fn update(self: *Paddle, win_height: f32) void {
+        const old_pos_y = self.pos.y;
         if (rl.isKeyDown(rl.KeyboardKey.w)) {
             self.pos.y -= self.speed;
         }
@@ -33,6 +37,12 @@ pub const Paddle = struct {
         }
         if (self.pos.y + self.size.y > win_height) {
             self.pos.y = win_height - self.size.y;
+        }
+        const movement = self.pos.y - old_pos_y;
+        if (movement == 0) {
+            self.direction = 0;
+        } else {
+            self.direction = if (movement > 0) 1 else -1;
         }
     }
 
@@ -64,9 +74,7 @@ pub const Paddle = struct {
             ball_bottom >= paddle_top;
     }
 
-    pub fn getDirection(_: Paddle) f32 {
-        if (rl.isKeyDown(rl.KeyboardKey.w)) return -1;
-        if (rl.isKeyDown(rl.KeyboardKey.s)) return 1;
-        return 0;
+    pub fn getDirection(self: Paddle) f32 {
+        return self.direction;
     }
 };
